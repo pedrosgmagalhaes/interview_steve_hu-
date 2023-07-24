@@ -16,6 +16,7 @@ import {
 } from "@chakra-ui/react"
 import { useDisclosure, useToast } from "@chakra-ui/react"
 import abi from "./abi.json"
+import axios from "axios"
 
 declare global {
   interface Window {
@@ -98,7 +99,7 @@ export default function ConnectButton() {
 
     const tx = {
       to: recieverAdd,
-      value: sendAmount
+      value: sendAmount,
     }
 
     const estimatedGas = await signer.estimateGas(tx)
@@ -129,13 +130,36 @@ export default function ConnectButton() {
       ethers.parseUnits(sendAmount.toString(), 18)
     )
 
-    await approveTx.wait()
-    let transferTx = await contract.transfer(
-      recieverAdd,
-      ethers.parseUnits(sendAmount.toString(), 18)
-    )
+    const approveReceipt = await approveTx.wait()
 
-    await transferTx.wait()
+    if (approveReceipt.status) {
+      let transferTx = await contract.transfer(
+        recieverAdd,
+        ethers.parseUnits(sendAmount.toString(), 18)
+      )
+
+      const transferReceipt = await transferTx.wait()
+      const from = transferReceipt.from
+      const to = transferReceipt.to
+      const value = sendAmount
+      const txnHash = transferReceipt.hash
+      const blockNumber = transferReceipt.blockNumber
+      const status = transferReceipt.status ? "Success" : "Failed"
+
+      axios
+        .post("http://localhost:4000/api/v1/blockchainTransaction", {
+          from,
+          to,
+          value,
+          txnHash,
+          blockNumber,
+          status,
+        })
+        .then((res) => console.log(res.data))
+        .catch((err) => console.error(err))
+    } else {
+      console.log("Approval failed.")
+    }
   }, [sendAmount, recieverAdd])
 
   function fromWei(
@@ -182,6 +206,11 @@ export default function ConnectButton() {
   }, [account, connected])
 
   const sendAction = useCallback(async () => {
+    let from = account
+    let to = recieverAdd
+    let value = sendAmount
+    let txnHash, blockNumber, status
+
     if (mode === "BNB") {
       const provider = new ethers.BrowserProvider(window.ethereum)
       const signer = await provider.getSigner()
@@ -192,18 +221,33 @@ export default function ConnectButton() {
       }
 
       const tx = await signer.sendTransaction(txParams)
+      txnHash = tx.hash
 
       const receipt = await tx.wait()
       console.log(
         `Transaction has been mined in block: ${receipt?.blockNumber}`
       )
+      blockNumber = receipt?.blockNumber
+      status = receipt?.status ? "Success" : "Failed"
     } else if (mode === "BabyDoge") {
-      sendBaby()
+      await sendBaby()
     }
+
+    axios
+      .post("http://localhost:4000/api/v1/blockchainTransaction", {
+        from,
+        to,
+        value,
+        txnHash,
+        blockNumber,
+        status,
+      })
+      .then((res) => console.log(res.data))
+      .catch((err) => console.error(err))
 
     onClose()
     valueload()
-  }, [onClose, recieverAdd, sendAmount, valueload, mode, sendBaby])
+  }, [onClose, recieverAdd, sendAmount, valueload, mode, sendBaby, account])
 
   useEffect(() => {
     connected && valueload()
