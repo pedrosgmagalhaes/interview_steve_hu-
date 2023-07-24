@@ -5,7 +5,7 @@ Built with Create React App + Typescript + Web3 + Chakra-UI
 ## Instruction
 
 ```
-git clone https://github.com/RaccoopackWorld/interview.git
+git clone https://github.com/MaryAL20/interview.git
 cd interview
 npm install
 npm run start
