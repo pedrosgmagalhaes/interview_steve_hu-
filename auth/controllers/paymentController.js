@@ -81,6 +81,14 @@ exports.paytmResponse = (req, res, next) => {
             "orderId": req.body.ORDERID,
         };
 
+        const addPayment = async (data) => {
+            try {
+                await Payment.create(data);
+            } catch (error) {
+                console.error("Payment Failed!", error);
+            }
+        }
+
         paytm.generateSignature(JSON.stringify(paytmParams.body), process.env.PAYTM_MERCHANT_KEY).then(function (checksum) {
 
             paytmParams.head = {
@@ -128,14 +136,6 @@ exports.paytmResponse = (req, res, next) => {
 
     } else {
         console.log("Checksum Mismatched");
-    }
-}
-
-const addPayment = async (data) => {
-    try {
-        await Payment.create(data);
-    } catch (error) {
-        console.log("Payment Failed!");
     }
 }
 
